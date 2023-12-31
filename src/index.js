@@ -4,14 +4,14 @@ export default {
 
 	async fetch(request, env, ctx) {
 
-		const usingDemoAccount = false;
+		// const usingDemoAccount = false;
 
-		const data = await tradingBan(request, env, ctx, usingDemoAccount)
-		const jsonData = JSON.stringify(data, null, 2);
-		// Return the JSON data when the worker URL is visited
-		return new Response(jsonData, {
-			headers: { "content-type": "application/json" },
-		});
+		// const data = await tradingBan(request, env, ctx, usingDemoAccount)
+		// const jsonData = JSON.stringify(data, null, 2);
+		// // Return the JSON data when the worker URL is visited
+		// return new Response(jsonData, {
+		// 	headers: { "content-type": "application/json" },
+		// });
 
 		// Return a simple message when the worker URL is visited
 		return new Response("Cloudflare worker is running.", {
