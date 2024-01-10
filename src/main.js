@@ -38,7 +38,7 @@ export async function tradingBan(request, env, ctx, usingDemoAccount) {
         if (totalValue / accountBalance < -0.01) {
 
             //Remove this when EU Stocks 50 is normalized
-            if (key !== "EU Stocks 50" && key !== "Alphabet Inc - A") {
+            if (key !== "EU Stocks 50") {
                 instrumentNamesToClose.push(key);
             }
         }
