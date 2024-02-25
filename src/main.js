@@ -4,7 +4,7 @@ import { getOpenPositions } from './helper_functions/open_positions.js';
 import { getClosedTrades } from './helper_functions/closed_trades.js';
 import {isMarketOpen} from './helper_functions/is_market_open.js';
 
-export async function tradingBan(request, env, ctx, usingDemoAccount) {
+export async function executeScheduledTask(request, env, ctx, usingDemoAccount) {
 
     let baseURL;
     if (usingDemoAccount) {
@@ -23,7 +23,46 @@ export async function tradingBan(request, env, ctx, usingDemoAccount) {
 
     const accountBalance = await getAccountBalance(env, CST, X_SECURITY_TOKEN, baseURL);
 
-    const openSummedPositions = await getOpenPositions(env, CST, X_SECURITY_TOKEN, baseURL, accountBalance);
+    const openPositionsData = await getOpenPositions(env, CST, X_SECURITY_TOKEN, baseURL);
+
+    // Initialize an empty object to store the summed profit and loss for each market
+    let openSummedPositions = {};
+
+    openPositionsData.positions.forEach(position => {
+
+        const instrumentName = position.market.instrumentName;
+        const direction = position.position.direction;
+        const positionSize = position.position.size;
+
+        let pl;
+
+        if (direction === 'BUY') {
+            const price = position.market.bid;
+            // Using Math.round() to keep the pl at 2 decimal places
+            pl = Math.round((price - position.position.level) * positionSize * 100) / 100;
+        } else if (direction === 'SELL') {
+            const price = position.market.offer;
+            pl = Math.round((position.position.level - price) * positionSize * 100) / 100;
+        }
+
+        if (openSummedPositions[instrumentName]) {
+            // Using Math.round() to keep the pl at 2 decimal places
+            openSummedPositions[instrumentName].pl = Math.round((openSummedPositions[instrumentName].pl + pl) * 100) / 100;
+            openSummedPositions[instrumentName].positions.push(position);
+        } else {
+            openSummedPositions[instrumentName] = { pl: pl, positions: [position] };
+        }
+
+    });
+
+    // Add a plRatio property to each instrumentName and the market status
+    for (const instrumentName in openSummedPositions) {
+        const plRatio = openSummedPositions[instrumentName].pl / accountBalance;
+        openSummedPositions[instrumentName].plRatio = plRatio;
+        const marketStatus = openSummedPositions[instrumentName].positions[0].market.marketStatus;
+        openSummedPositions[instrumentName].marketStatus = marketStatus;
+    }
+
 
     const closedSummedPositions = await getClosedTrades(env, 1);
 
@@ -63,32 +102,19 @@ export async function tradingBan(request, env, ctx, usingDemoAccount) {
     }
 
     // Now close each position in positionsToClose
-    
-    // Define the headers
-    const closePositionHeaders = {
-        'Content-Type': 'application/json',
-        'X-IG-API-KEY': env.IG_API_KEY,
-        'Version': '1',
-        'CST': CST,
-        'X-SECURITY-TOKEN': X_SECURITY_TOKEN,
-        '_method': 'DELETE'
-    };
 
     // Iterate over positionsToClose and make a request for each
+    let closedPositionsErrors = [];
     for (const position of positionsToClose) {
-        const response = await fetch(`${baseURL}/positions/otc`, {
-            method: 'POST',
-            headers: closePositionHeaders,
-            body: JSON.stringify(position)
-        });
-
-        if (!response.ok) {
-            console.error(`Failed to close position. Status code: ${response.status}`);
-        } else {
-            console.log(`Position closed successfully.`);
+        try {
+            await closePosition(env, CST, X_SECURITY_TOKEN, baseURL, position);
+        } catch (error) {
+            closedPositionsErrors.push(error);
         }
     }
 
-    //return positionsToClose;
+    if (closedPositionsErrors.length > 0) {
+        throw new Error(`Failed to close positions: ${closedPositionsErrors.map(error => error.message).join(", ")}`);
+    }
 
 }
