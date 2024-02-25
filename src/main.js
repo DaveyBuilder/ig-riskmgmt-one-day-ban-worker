@@ -3,6 +3,7 @@ import { getAccountBalance } from './helper_functions/account_balance.js';
 import { getOpenPositions } from './helper_functions/open_positions.js';
 import { getClosedTrades } from './helper_functions/closed_trades.js';
 import {isMarketOpen} from './helper_functions/is_market_open.js';
+import {closePosition} from './helper_functions/close_position.js';
 
 export async function executeScheduledTask(request, env, ctx, usingDemoAccount) {
 
